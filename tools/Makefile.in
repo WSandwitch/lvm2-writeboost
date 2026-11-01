@@ -159,7 +159,7 @@ liblvm2cmd.$(LIB_SUFFIX).$(LIB_VERSION): liblvm2cmd.$(LIB_SUFFIX)
 
 .commands: $(srcdir)/cmdnames.h $(srcdir)/commands.h Makefile
 	$(SHOW) "    [CC] $(<F)"
-	$(Q) $(CC) -E -P $< 2> /dev/null | \
+	$(Q) sed -n 's/^xx(\([^,]*\),.*/\1/p' $(srcdir)/commands.h | \
 		$(EGREP) -v '^ *(|#.*|config|devtypes|dumpconfig|formats|fullreport|help|lastlog|lvmchange|lvpoll|pvdata|segtypes|systemid|tags|version) *$$' > .commands
 
 .DELETE_ON_ERROR:

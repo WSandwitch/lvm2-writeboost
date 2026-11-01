@@ -133,6 +133,8 @@ static const struct command_function _command_functions[CMD_COUNT] = {
 	{ lvconvert_to_cache_with_cachepool_CMD,	lvconvert_to_cache_with_cachepool_cmd },
 	{ lvconvert_to_writecache_CMD,			lvconvert_to_writecache_cmd },
 	{ lvconvert_to_writecache_with_device_CMD,	lvconvert_to_writecache_cmd },
+	{ lvconvert_to_writeboost_CMD,			lvconvert_to_writeboost_cmd },
+	{ lvconvert_to_writeboost_with_device_CMD,	lvconvert_to_writeboost_cmd },
 	{ lvconvert_swap_pool_metadata_CMD,		lvconvert_swap_pool_metadata_cmd },
 	{ lvconvert_to_thinpool_or_swap_metadata_CMD,   lvconvert_to_pool_or_swap_metadata_cmd },
 	{ lvconvert_to_cachepool_or_swap_metadata_CMD,  lvconvert_to_pool_or_swap_metadata_cmd },

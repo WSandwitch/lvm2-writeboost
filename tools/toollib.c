@@ -2992,6 +2992,8 @@ static int _lv_is_type(struct cmd_context *cmd, struct logical_volume *lv, int l
 		return seg_is_raid10(seg);
 	case writecache_LVT:
 		return seg_is_writecache(seg);
+	case writeboost_LVT:
+		return seg_is_writeboost(seg);
 	case integrity_LVT:
 		return seg_is_integrity(seg);
 	case error_LVT:
@@ -3059,6 +3061,8 @@ int get_lvt_enum(struct logical_volume *lv)
 		return raid10_LVT;
 	if (seg_is_writecache(seg))
 		return writecache_LVT;
+	if (seg_is_writeboost(seg))
+		return writeboost_LVT;
 	if (seg_is_integrity(seg))
 		return integrity_LVT;
 

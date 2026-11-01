@@ -126,7 +126,7 @@ val(nextents_VAL, nextents_arg, "NExtents", "[-]Number[PERCENT]")
 val(permission_VAL, permission_arg, "Permission", "rw|r")
 val(metadatatype_VAL, metadatatype_arg, "MetadataType", "lvm2")
 val(units_VAL, string_arg, "Units", "[Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E")
-val(segtype_VAL, segtype_arg, "SegType", "linear|striped|snapshot|raid|mirror|thin|thin-pool|vdo|vdo-pool|cache|cache-pool|writecache")
+val(segtype_VAL, segtype_arg, "SegType", "linear|striped|snapshot|raid|mirror|thin|thin-pool|vdo|vdo-pool|cache|cache-pool|writecache|writeboost")
 val(alloc_VAL, alloc_arg, "Alloc", "contiguous|cling|cling_by_tags|normal|anywhere|inherit")
 #ifdef LOCKDSANLOCK_SUPPORT
 #define LOCKTYPE_SANLOCK "sanlock|"

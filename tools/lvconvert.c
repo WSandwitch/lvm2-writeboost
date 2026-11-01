@@ -5147,6 +5147,9 @@ static int _lvconvert_detach_writecache(struct cmd_context *cmd, struct processi
 					struct logical_volume *lv_fast);
 static int _lvconvert_detach_writecache_when_clean(struct cmd_context *cmd,
 						   struct lvconvert_result *lr);
+static int _lvconvert_detach_writeboost(struct cmd_context *cmd,
+					struct logical_volume *lv,
+					struct logical_volume *lv_fast);
 
 static int _lvconvert_split_cache_single(struct cmd_context *cmd,
 					 struct logical_volume *lv,
@@ -5160,6 +5163,10 @@ static int _lvconvert_split_cache_single(struct cmd_context *cmd,
 	if (lv_is_writecache(lv)) {
 		lv_main = lv;
 		lv_fast = first_seg(lv_main)->writecache;
+
+	} else if (lv_is_writeboost(lv)) {
+		lv_main = lv;
+		lv_fast = first_seg(lv_main)->writeboost;
 
 	} else if (lv_is_cache(lv)) {
 		lv_main = lv;
@@ -5213,6 +5220,15 @@ static int _lvconvert_split_cache_single(struct cmd_context *cmd,
 				if (lvremove_single(cmd, lv_fast, NULL) != ECMD_PROCESSED)
 					return_ECMD_FAILED;
 			}
+		}
+		ret = 1;
+	} else if (lv_is_writeboost(lv_main)) {
+		if (!_lvconvert_detach_writeboost(cmd, lv_main, lv_fast))
+			return_ECMD_FAILED;
+
+		if (cmd->command->command_enum == lvconvert_split_and_remove_cache_CMD) {
+			if (lvremove_single(cmd, lv_fast, NULL) != ECMD_PROCESSED)
+				return_ECMD_FAILED;
 		}
 		ret = 1;
 	} else if (lv_is_cache(lv_main) && lv_is_cache_vol(lv_fast)) {
@@ -6662,6 +6678,210 @@ int lvconvert_integrity_cmd(struct cmd_context *cmd, int argc, char **argv)
 	destroy_processing_handle(cmd, handle);
 
 	return ret;
+}
+
+static int _get_writeboost_settings(struct cmd_context *cmd,
+				    uint32_t *writeback_threshold,
+				    uint32_t *sync_data_interval)
+{
+	struct arg_value_group_list *group;
+	const char *str;
+	char key[64];
+	char val[64];
+	unsigned pos;
+	int num;
+
+	*writeback_threshold = 70;
+	*sync_data_interval = 3600;
+
+	dm_list_iterate_items(group, &cmd->arg_value_groups) {
+		if (!grouped_arg_is_set(group->arg_values, cachesettings_ARG))
+			continue;
+
+		if (!(str = grouped_arg_str_value(group->arg_values, cachesettings_ARG, NULL)))
+			break;
+
+		pos = 0;
+		while (pos < strlen(str)) {
+			memset(key, 0, sizeof(key));
+			memset(val, 0, sizeof(val));
+
+			if (sscanf(str + pos, " %63[^=]=%63s %n", key, val, &num) != 2) {
+				log_error("Invalid setting at: %s", str + pos);
+				return 0;
+			}
+			pos += num;
+
+			if (!strcasecmp(key, "writeback_threshold")) {
+				if (sscanf(val, "%u", writeback_threshold) != 1 ||
+				    *writeback_threshold > 100) {
+					log_error("Invalid writeback_threshold.");
+					return 0;
+				}
+			} else if (!strcasecmp(key, "sync_data_interval")) {
+				if (sscanf(val, "%u", sync_data_interval) != 1 ||
+				    *sync_data_interval > 3600) {
+					log_error("Invalid sync_data_interval.");
+					return 0;
+				}
+			} else {
+				log_error("Unknown writeboost setting %s.", key);
+				return 0;
+			}
+		}
+	}
+
+	return 1;
+}
+
+static int _lv_writeboost_create(struct cmd_context *cmd,
+				 struct logical_volume *lv,
+				 struct logical_volume *lv_fast,
+				 uint32_t writeback_threshold,
+				 uint32_t sync_data_interval)
+{
+	const struct segment_type *segtype;
+	struct lv_segment *seg;
+
+	if (!(segtype = get_segtype_from_string(cmd, SEG_TYPE_NAME_WRITECACHEBOOST)))
+		return_0;
+
+	if (!insert_layer_for_lv(cmd, lv, 0, "_wborig"))
+		return_0;
+
+	lv->status |= WRITECACHEBOOST;
+	seg = first_seg(lv);
+	seg->segtype = segtype;
+
+	seg->writeboost = lv_fast;
+	lv_set_hidden(lv_fast);
+	lv_fast->status |= LV_CACHE_VOL;
+
+	seg->writeboost_writeback_threshold = writeback_threshold;
+	seg->writeboost_sync_data_interval = sync_data_interval;
+
+	if (!add_seg_to_segs_using_this_lv(lv_fast, seg))
+		return_0;
+
+	return 1;
+}
+
+int lvconvert_writeboost_attach_single(struct cmd_context *cmd,
+				       struct logical_volume *lv,
+				       struct processing_handle *handle __attribute__((unused)))
+{
+	struct volume_group *vg = lv->vg;
+	struct logical_volume *lv_fast = NULL;
+	const char *fast_name = arg_str_value(cmd, cachevol_ARG, NULL);
+	char cvol_name[NAME_LEN];
+	uint32_t writeback_threshold;
+	uint32_t sync_data_interval;
+
+	if (lv_is_writeboost(lv)) {
+		log_error("LV %s already has writeboost.", display_lvname(lv));
+		return ECMD_FAILED;
+	}
+
+	if (lv_is_writecache(lv) || lv_is_cache(lv)) {
+		log_error("LV %s already has a cache type.", display_lvname(lv));
+		return ECMD_FAILED;
+	}
+
+	if (fast_name) {
+		if (!(lv_fast = find_lv(vg, fast_name))) {
+			log_error("Unknown LV %s for writeboost cachevol.", fast_name);
+			return ECMD_FAILED;
+		}
+	} else if (arg_is_set(cmd, cachedevice_ARG)) {
+		if (!_lv_create_cachevol(cmd, vg, lv, &lv_fast))
+			return ECMD_FAILED;
+	} else {
+		log_error("Requires --cachevol or --cachedevice.");
+		return ECMD_FAILED;
+	}
+
+	if (lv_fast == lv) {
+		log_error("Cachevol must be a different LV from the origin.");
+		return ECMD_FAILED;
+	}
+
+	if (lv_fast->vg != vg) {
+		log_error("Cachevol must be in the same VG.");
+		return ECMD_FAILED;
+	}
+
+	if (!seg_is_linear(first_seg(lv_fast))) {
+		log_error("LV %s must be linear to use as a writeboost cachevol.", display_lvname(lv_fast));
+		return ECMD_FAILED;
+	}
+
+	if (lv_is_active(lv_fast)) {
+		log_error("LV %s must be inactive to attach.", display_lvname(lv_fast));
+		return ECMD_FAILED;
+	}
+
+	if (!_get_writeboost_settings(cmd, &writeback_threshold, &sync_data_interval))
+		return ECMD_FAILED;
+
+	if (!archive(vg))
+		return ECMD_FAILED;
+
+	if (dm_snprintf(cvol_name, sizeof(cvol_name), "%s_cvol", lv_fast->name) < 0) {
+		log_error("Can't prepare new metadata name for %s.", display_lvname(lv_fast));
+		return ECMD_FAILED;
+	}
+
+	if (!lv_rename_update(cmd, lv_fast, cvol_name, 0))
+		return ECMD_FAILED;
+
+	if (!_lv_writeboost_create(cmd, lv, lv_fast,
+				   writeback_threshold, sync_data_interval))
+		return ECMD_FAILED;
+
+	if (!lv_update_and_reload(lv))
+		return ECMD_FAILED;
+
+	log_print_unless_silent("Logical volume %s now has writeboost.",
+				display_lvname(lv));
+	return ECMD_PROCESSED;
+}
+
+int lvconvert_to_writeboost_cmd(struct cmd_context *cmd, int argc, char **argv)
+{
+	struct processing_handle *handle;
+	struct lvconvert_result lr = { 0 };
+	int ret;
+
+	if (!(handle = init_processing_handle(cmd, NULL))) {
+		log_error("Failed to initialize processing handle.");
+		return ECMD_FAILED;
+	}
+
+	handle->custom_handle = &lr;
+
+	cmd->get_vgname_from_options = 0;
+
+	ret = process_each_lv(cmd, cmd->position_argc, cmd->position_argv, NULL, NULL, READ_FOR_UPDATE, handle, NULL,
+			      &lvconvert_writeboost_attach_single);
+
+	destroy_processing_handle(cmd, handle);
+
+	return ret;
+}
+
+static int _lvconvert_detach_writeboost(struct cmd_context *cmd,
+					struct logical_volume *lv,
+					struct logical_volume *lv_fast __attribute__((unused)))
+{
+	if (!archive(lv->vg))
+		return_0;
+
+	if (!lv_detach_writeboost_cachevol(lv, 0))
+		return_0;
+
+	log_print_unless_silent("Logical volume %s writeboost has been detached.",
+				display_lvname(lv));
+	return 1;
 }
 
 /*

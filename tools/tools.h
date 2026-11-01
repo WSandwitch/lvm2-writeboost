@@ -214,6 +214,7 @@ int lvconvert_to_pool_cmd(struct cmd_context *cmd, int argc, char **argv);
 int lvconvert_to_cache_with_cachevol_cmd(struct cmd_context *cmd, int argc, char **argv);
 int lvconvert_to_cache_with_cachepool_cmd(struct cmd_context *cmd, int argc, char **argv);
 int lvconvert_to_writecache_cmd(struct cmd_context *cmd, int argc, char **argv);
+int lvconvert_to_writeboost_cmd(struct cmd_context *cmd, int argc, char **argv);
 int lvconvert_to_thin_with_external_cmd(struct cmd_context *cmd, int argc, char **argv);
 int lvconvert_to_thin_with_data_cmd(struct cmd_context *cmd, int argc, char **argv);
 int lvconvert_swap_pool_metadata_cmd(struct cmd_context *cmd, int argc, char **argv);
@@ -242,6 +243,9 @@ int pvscan_cache_cmd(struct cmd_context *cmd, int argc, char **argv);
 
 
 int lvconvert_writecache_attach_single(struct cmd_context *cmd,
+				       struct logical_volume *lv,
+				       struct processing_handle *handle);
+int lvconvert_writeboost_attach_single(struct cmd_context *cmd,
 				       struct logical_volume *lv,
 				       struct processing_handle *handle);
 int lvconvert_cachevol_attach_single(struct cmd_context *cmd,

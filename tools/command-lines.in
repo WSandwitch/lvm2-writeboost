@@ -270,7 +270,7 @@ RULE: --profile not --detachprofile
 RULE: --metadataprofile not --detachprofile
 RULE: --minrecoveryrate --maxrecoveryrate and LV_raid
 RULE: --writebehind --writemostly and LV_raid1
-RULE: --cachemode --cachepolicy --cachesettings and LV_cache LV_cachepool LV_writecache
+RULE: --cachemode --cachepolicy --cachesettings and LV_cache LV_cachepool LV_writecache LV_writeboost
 RULE: --errorwhenfull --discards --zero and LV_thinpool
 RULE: --permission not lv_is_external_origin lv_is_raid_metadata lv_is_raid_image LV_thinpool
 RULE: --alloc --contiguous --metadataprofile --persistent --profile --readahead not lv_is_thick_origin
@@ -535,6 +535,14 @@ RULE: all and lv_is_visible
 
 ---
 
+lvconvert --type writeboost --cachevol LV LV_linear_striped_raid_thinpool
+OO: OO_LVCONVERT, --cachesettings String
+ID: lvconvert_to_writeboost
+DESC: Attach a writeboost to an LV, converting the LV to type writeboost.
+RULE: all and lv_is_visible
+
+---
+
 lvconvert --type cache --cachevol LV LV_linear_striped_raid_thinpool
 OO: --cache, OO_LVCONVERT_CACHE, OO_LVCONVERT, --poolmetadatasize SizeMB, --chunksize SizeKB
 ID: lvconvert_to_cache_with_cachevol
@@ -555,6 +563,12 @@ lvconvert --type writecache --cachedevice PV LV_linear_striped_raid_thinpool
 OO: OO_LVCONVERT, --cachesize SizeMB, --cachesettings String
 ID: lvconvert_to_writecache_with_device
 DESC: Add a writecache to an LV, using a specified cache device.
+RULE: all and lv_is_visible
+
+lvconvert --type writeboost --cachedevice PV LV_linear_striped_raid_thinpool
+OO: OO_LVCONVERT, --cachesize SizeMB, --cachesettings String
+ID: lvconvert_to_writeboost_with_device
+DESC: Add a writeboost to an LV, using a specified cache device.
 RULE: all and lv_is_visible
 
 lvconvert --type cache --cachedevice PV LV_linear_striped_raid_thinpool
@@ -686,14 +700,14 @@ AUTOTYPE: vdo-pool
 
 ---
 
-lvconvert --splitcache LV_cachepool_cache_thinpool_vdopool_writecache
+lvconvert --splitcache LV_cachepool_cache_thinpool_vdopool_writecache_writeboost
 OO: OO_LVCONVERT, --cachesettings String
 ID: lvconvert_split_and_keep_cache
 DESC: Detach a cache from an LV.
 
 ---
 
-lvconvert --uncache LV_cache_thinpool_vdopool_writecache
+lvconvert --uncache LV_cache_thinpool_vdopool_writecache_writeboost
 OO: OO_LVCONVERT, --cachesettings String
 ID: lvconvert_split_and_remove_cache
 DESC: Detach and delete a cache from an LV.
