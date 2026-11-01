@@ -36,6 +36,7 @@ enum {
 	SEG_STRIPED,
 	SEG_ZERO,
 	SEG_WRITECACHE,
+	SEG_WRITECACHEBOOST,
 	SEG_INTEGRITY,
 	SEG_THIN_POOL,
 	SEG_THIN,
@@ -77,6 +78,7 @@ static const struct {
 	{ SEG_STRIPED, "striped" },
 	{ SEG_ZERO, "zero"},
 	{ SEG_WRITECACHE, "writecache"},
+	{ SEG_WRITECACHEBOOST, "writeboost"},
 	{ SEG_INTEGRITY, "integrity"},
 	{ SEG_THIN_POOL, "thin-pool"},
 	{ SEG_THIN, "thin"},
@@ -221,6 +223,9 @@ struct load_segment {
 	int writecache_pmem;				/* writecache, 1 if pmem, 0 if ssd */
 	uint32_t writecache_block_size;			/* writecache, in bytes */
 	struct dm_writecache_settings writecache_settings;	/* writecache */
+
+	struct dm_tree_node *writeboost_node;		/* writeboost */
+	struct dm_writeboost_settings writeboost_settings;	/* writeboost */
 
 	uint64_t integrity_data_sectors;		/* integrity (provided_data_sectors) */
 	struct dm_tree_node *integrity_meta_node;	/* integrity */
@@ -2833,6 +2838,28 @@ static int _writecache_emit_segment_line(struct dm_task *dmt,
 	return 1;
 }
 
+static int _writeboost_emit_segment_line(struct dm_task *dmt,
+				    struct load_segment *seg,
+				    char *params, size_t paramsize)
+{
+	int pos = 0;
+	char origin_dev[DM_FORMAT_DEV_BUFSIZE];
+	char cache_dev[DM_FORMAT_DEV_BUFSIZE];
+
+	if (!_build_dev_string(origin_dev, sizeof(origin_dev), seg->origin))
+		return_0;
+
+	if (!_build_dev_string(cache_dev, sizeof(cache_dev), seg->writeboost_node))
+		return_0;
+
+	EMIT_PARAMS(pos, "%s %s 4 writeback_threshold %u sync_data_interval %u",
+		    origin_dev, cache_dev,
+		    seg->writeboost_settings.writeback_threshold,
+		    seg->writeboost_settings.sync_data_interval);
+
+	return 1;
+}
+
 static int _integrity_emit_segment_line(struct dm_task *dmt,
 				    struct load_segment *seg,
 				    char *params, size_t paramsize)
@@ -3168,6 +3195,10 @@ static int _emit_segment_line(struct dm_task *dmt, uint32_t major,
 		if (!_writecache_emit_segment_line(dmt, seg, params, paramsize))
 			return_0;
 		break;
+	case SEG_WRITECACHEBOOST:
+		if (!_writeboost_emit_segment_line(dmt, seg, params, paramsize))
+			return_0;
+		break;
 	case SEG_INTEGRITY:
 		if (!_integrity_emit_segment_line(dmt, seg, params, paramsize))
 			return_0;
@@ -3184,6 +3215,7 @@ static int _emit_segment_line(struct dm_task *dmt, uint32_t major,
 	case SEG_THIN:
 	case SEG_CACHE:
 	case SEG_WRITECACHE:
+	case SEG_WRITECACHEBOOST:
 	case SEG_INTEGRITY:
 		break;
 	case SEG_CRYPT:
@@ -4142,6 +4174,36 @@ int dm_tree_node_add_writecache_target(struct dm_tree_node *node,
 		seg->writecache_settings.new_key = dm_pool_strdup(node->dtree->mem, settings->new_key);
 		seg->writecache_settings.new_val = dm_pool_strdup(node->dtree->mem, settings->new_val);
 	}
+
+	return 1;
+}
+
+int dm_tree_node_add_writeboost_target(struct dm_tree_node *node,
+				  uint64_t size,
+				  const char *origin_uuid,
+				  const char *cache_uuid,
+				  const struct dm_writeboost_settings *settings)
+{
+	struct load_segment *seg;
+
+	if (!(seg = _add_segment(node, SEG_WRITECACHEBOOST, size)))
+		return_0;
+
+	if (!(seg->writeboost_node = dm_tree_find_node_by_uuid(node->dtree, cache_uuid))) {
+		log_error("Missing writeboost's cache uuid %s.", cache_uuid);
+		return 0;
+	}
+	if (!_link_tree_nodes(node, seg->writeboost_node))
+		return_0;
+
+	if (!(seg->origin = dm_tree_find_node_by_uuid(node->dtree, origin_uuid))) {
+		log_error("Missing writeboost's origin uuid %s.", origin_uuid);
+		return 0;
+	}
+	if (!_link_tree_nodes(node, seg->origin))
+		return_0;
+
+	memcpy(&seg->writeboost_settings, settings, sizeof(*settings));
 
 	return 1;
 }

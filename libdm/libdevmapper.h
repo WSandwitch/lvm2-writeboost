@@ -2015,6 +2015,17 @@ int dm_tree_node_add_writecache_target(struct dm_tree_node *node,
 				uint32_t writecache_block_size,
 				struct dm_writecache_settings *settings);
 
+struct dm_writeboost_settings {
+	uint32_t writeback_threshold;
+	uint32_t sync_data_interval;
+};
+
+int dm_tree_node_add_writeboost_target(struct dm_tree_node *node,
+				uint64_t size,
+				const char *origin_uuid,
+				const char *cache_uuid,
+				const struct dm_writeboost_settings *settings);
+
 struct dm_integrity_settings {
 	char mode[8];
 	uint32_t tag_size;
