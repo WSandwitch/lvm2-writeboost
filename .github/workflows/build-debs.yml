@@ -1,0 +1,82 @@
+name: build-debs
+
+on:
+  push:
+    branches:
+      - writeboost
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - writeboost
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build ${{ matrix.arch }} debs
+    runs-on: ${{ matrix.runner }}
+    container: ubuntu:22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          set -eux
+          sed -i 's/^# *deb-src /deb-src /' /etc/apt/sources.list
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            build-essential debhelper devscripts gawk
+          DEBIAN_FRONTEND=noninteractive apt-get build-dep -y lvm2
+
+      - name: Build packages
+        env:
+          DEB_BUILD_OPTIONS: nocheck
+        run: |
+          set -eux
+          dpkg-buildpackage -b -uc -us
+
+      - name: Collect packages
+        run: |
+          set -eux
+          mkdir -p artifacts
+          cp ../*.deb artifacts/
+          ls -lh artifacts
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: lvm2-writeboost-${{ matrix.arch }}
+          path: artifacts/*.deb
+          if-no-files-found: error
+
+  release:
+    name: attach debs to release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.deb
+          fail_on_unmatched_files: true
