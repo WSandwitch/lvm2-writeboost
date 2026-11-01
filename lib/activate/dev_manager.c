@@ -1978,6 +1978,40 @@ out:
 	return r;
 }
 
+int dev_manager_writeboost_message(struct dev_manager *dm,
+				   const struct logical_volume *lv,
+				   const char *msg)
+{
+	int r = 0;
+	const char *dlid;
+	struct dm_task *dmt;
+	const char *layer = lv_layer(lv);
+
+	if (!lv_is_writeboost(lv)) {
+		log_error(INTERNAL_ERROR "%s is not a writeboost logical volume.",
+			  display_lvname(lv));
+		return 0;
+	}
+
+	if (!(dlid = build_dm_uuid(dm->mem, lv, layer)))
+		return_0;
+
+	if (!(dmt = _setup_task_run(DM_DEVICE_TARGET_MSG, NULL, NULL, dlid, 0, 0, 0, 0, 1, 0)))
+		return_0;
+
+	if (!dm_task_set_message(dmt, msg))
+		goto_out;
+
+	if (!dm_task_run(dmt))
+		goto_out;
+
+	r = 1;
+out:
+	dm_task_destroy(dmt);
+
+	return r;
+}
+
 int dev_manager_cache_status(struct dev_manager *dm,
 			     const struct logical_volume *lv,
 			     struct lv_status_cache **status, int *exists)
@@ -3081,6 +3115,10 @@ static int _add_lv_to_dtree(struct dev_manager *dm, struct dm_tree *dtree,
 			if (!_add_lv_to_dtree(dm, dtree, seg->writecache, dm->activation ? origin_only : 1))
 				return_0;
 		}
+		if (seg->writeboost && seg_is_writeboost(seg)) {
+			if (!_add_lv_to_dtree(dm, dtree, seg->writeboost, dm->activation ? origin_only : 1))
+				return_0;
+		}
 		if (seg->integrity_meta_dev && seg_is_integrity(seg)) {
 			if (!_add_lv_to_dtree(dm, dtree, seg->integrity_meta_dev, dm->activation ? origin_only : 1))
 				return_0;
@@ -3620,6 +3658,11 @@ static int _add_segment_to_dtree(struct dev_manager *dm,
 				  lv_layer(seg->writecache)))
 		return_0;
 
+	if (seg->writeboost && !laopts->origin_only &&
+	    !_add_new_lv_to_dtree(dm, dtree, seg->writeboost, laopts,
+				  "cvol"))
+		return_0;
+
 	/* Integrity reads superblock during TABLE_LOAD -- fails with EIO
 	 * when backing device uses error target (missing PV).
 	 * Use error target for the whole integrity device so RAID handles
@@ -3834,8 +3877,8 @@ static int _add_new_lv_to_dtree(struct dev_manager *dm, struct dm_tree *dtree,
 	if (!layer && lv_is_new_thin_pool(lv))
 		layer = lv_layer(lv);
 
-	/* Adds -real to the dm uuid of wcorig LV. */
-	if (!layer && lv_is_writecache_origin(lv))
+	/* Adds -real to the dm uuid of wcorig/wborig LV. */
+	if (!layer && (lv_is_writecache_origin(lv) || lv_is_writeboost_origin(lv)))
 		layer = lv_layer(lv); /* "real" */
 
 	/*

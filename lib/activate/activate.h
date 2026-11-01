@@ -201,6 +201,7 @@ int lv_raid_status(const struct logical_volume *lv, struct lv_status_raid **stat
 int lv_raid_clear_failed_devices(const struct logical_volume *lv);
 int lv_raid_count_failed_devices(const struct logical_volume *lv, uint32_t *failed_cnt);
 int lv_writecache_message(const struct logical_volume *lv, const char *msg);
+int lv_writeboost_message(const struct logical_volume *lv, const char *msg);
 int lv_cache_status(const struct logical_volume *cache_lv,
 		    struct lv_status_cache **status);
 int lv_thin_device_id(const struct logical_volume *lv, uint32_t *device_id);
@@ -276,6 +277,7 @@ void fs_unlock(void);
 
 #define TARGET_NAME_CACHE "cache"
 #define TARGET_NAME_WRITECACHE "writecache"
+#define TARGET_NAME_WRITECACHEBOOST "writeboost"
 #define TARGET_NAME_INTEGRITY "integrity"
 #define TARGET_NAME_ERROR "error"
 #define TARGET_NAME_ERROR_OLD "erro"	/* Truncated in older kernels */
@@ -293,6 +295,7 @@ void fs_unlock(void);
 
 #define MODULE_NAME_CACHE TARGET_NAME_CACHE
 #define MODULE_NAME_WRITECACHE TARGET_NAME_WRITECACHE
+#define MODULE_NAME_WRITECACHEBOOST TARGET_NAME_WRITECACHEBOOST
 #define MODULE_NAME_INTEGRITY TARGET_NAME_INTEGRITY
 #define MODULE_NAME_ERROR TARGET_NAME_ERROR
 #define MODULE_NAME_MIRROR TARGET_NAME_MIRROR

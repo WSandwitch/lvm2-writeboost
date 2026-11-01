@@ -305,6 +305,10 @@ int lv_writecache_message(const struct logical_volume *lv, const char *msg)
 {
 	return 0;
 }
+int lv_writeboost_message(const struct logical_volume *lv, const char *msg)
+{
+	return 0;
+}
 int lv_thin_pool_status(const struct logical_volume *lv, int flush,
 			struct lv_status_thin_pool **thin_pool_status)
 {
@@ -1357,6 +1361,26 @@ int lv_writecache_message(const struct logical_volume *lv, const char *msg)
 		return_0;
 
 	r = dev_manager_writecache_message(dm, lv, msg);
+
+	dev_manager_destroy(dm);
+
+	return r;
+}
+
+int lv_writeboost_message(const struct logical_volume *lv, const char *msg)
+{
+	int r = 0;
+	struct dev_manager *dm;
+
+	if (!lv_info(lv->vg->cmd, lv, 0, NULL, 0, 0)) {
+		log_error("Unable to send message to an inactive logical volume.");
+		return 0;
+	}
+
+	if (!(dm = dev_manager_create(lv->vg->cmd, lv->vg->name, 1)))
+		return_0;
+
+	r = dev_manager_writeboost_message(dm, lv, msg);
 
 	dev_manager_destroy(dm);
 
@@ -2678,6 +2702,14 @@ static int _lv_activate(struct cmd_context *cmd, const char *lvid_s,
 		struct logical_volume *lv_fast = first_seg(lv)->writecache;
 		if (lv_is_partial(lv) || (lv_fast && lv_is_partial(lv_fast))) {
 			log_error("Cannot use partial or degraded activation with writecache.");
+			goto out;
+		}
+	}
+
+	if ((cmd->partial_activation || cmd->degraded_activation) && lv_is_writeboost(lv)) {
+		struct logical_volume *lv_fast = first_seg(lv)->writeboost;
+		if (lv_is_partial(lv) || (lv_fast && lv_is_partial(lv_fast))) {
+			log_error("Cannot use partial or degraded activation with writeboost.");
 			goto out;
 		}
 	}

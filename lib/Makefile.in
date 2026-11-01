@@ -21,6 +21,7 @@ SOURCES =\
 	activate/activate.c \
 	cache/lvmcache.c \
 	writecache/writecache.c \
+	writeboost/writeboost.c \
 	integrity/integrity.c \
 	cache_segtype/cache.c \
 	commands/toolcontext.c \
@@ -79,6 +80,7 @@ SOURCES =\
 	log/log.c \
 	metadata/cache_manip.c \
 	metadata/writecache_manip.c \
+	metadata/writeboost_manip.c \
 	metadata/integrity_manip.c \
 	metadata/lv.c \
 	metadata/lv_manip.c \

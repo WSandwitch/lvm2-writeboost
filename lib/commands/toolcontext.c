@@ -1499,6 +1499,9 @@ static int _init_segtypes(struct cmd_context *cmd)
 		return_0;
 #endif
 
+	if (!init_writeboost_segtypes(cmd, &seglib))
+		return_0;
+
 #ifdef INTEGRITY_INTERNAL
 	if (!init_integrity_segtypes(cmd, &seglib))
 		return_0;

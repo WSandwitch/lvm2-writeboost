@@ -870,7 +870,8 @@ int check_lv_segments_incomplete_vg(struct logical_volume *lv)
 		}
 		if (seg->log_lv == lv)
 			seg_found++;
-		if (seg->metadata_lv == lv || seg->pool_lv == lv || seg->writecache == lv)
+		if (seg->metadata_lv == lv || seg->pool_lv == lv ||
+		    seg->writecache == lv || seg->writeboost == lv)
 			seg_found++;
 		if (seg->integrity_meta_dev == lv)
 			seg_found++;

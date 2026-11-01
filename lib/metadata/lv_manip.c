@@ -144,6 +144,8 @@ enum {
 	LV_TYPE_CACHEVOL,
 	LV_TYPE_WRITECACHE,
 	LV_TYPE_WRITECACHEORIGIN,
+	LV_TYPE_WRITECACHEBOOST,
+	LV_TYPE_WRITECACHEBOOSTORIGIN,
 	LV_TYPE_INTEGRITY,
 	LV_TYPE_INTEGRITYORIGIN
 };
@@ -203,6 +205,8 @@ static const char _lv_type_names[][24] = {
 	[LV_TYPE_CACHEVOL] =				"cachevol",
 	[LV_TYPE_WRITECACHE] =				"writecache",
 	[LV_TYPE_WRITECACHEORIGIN] =			"writecacheorigin",
+	[LV_TYPE_WRITECACHEBOOST] =			"writeboost",
+	[LV_TYPE_WRITECACHEBOOSTORIGIN] =		"writeboostorigin",
 	[LV_TYPE_INTEGRITY] =				"integrity",
 	[LV_TYPE_INTEGRITYORIGIN] =			"integrityorigin",
 };
@@ -439,6 +443,14 @@ static int _lv_layout_and_role_cache(struct dm_pool *mem,
 		if (lv_is_writecache(lv) &&
 		    !str_list_add_no_dup_check(mem, layout, _lv_type_names[LV_TYPE_WRITECACHE]))
 			goto_bad;
+	} else if (lv_is_writeboost_origin(lv)) {
+		if (!str_list_add(mem, role, _lv_type_names[LV_TYPE_WRITECACHEBOOST]) ||
+		    !str_list_add(mem, role, _lv_type_names[LV_TYPE_ORIGIN]) ||
+		    !str_list_add_no_dup_check(mem, role, _lv_type_names[LV_TYPE_WRITECACHEBOOSTORIGIN]))
+			goto_bad;
+		if (lv_is_writeboost(lv) &&
+		    !str_list_add_no_dup_check(mem, layout, _lv_type_names[LV_TYPE_WRITECACHEBOOST]))
+			goto_bad;
 	} else
 		top_level = 1;
 
@@ -454,8 +466,16 @@ static int _lv_layout_and_role_cache(struct dm_pool *mem,
 	else if (lv_is_writecache(lv) &&
 	         !str_list_add_no_dup_check(mem, layout, _lv_type_names[LV_TYPE_WRITECACHE]))
 		goto_bad;
+	else if (lv_is_writeboost(lv) &&
+	         !str_list_add_no_dup_check(mem, layout, _lv_type_names[LV_TYPE_WRITECACHEBOOST]))
+		goto_bad;
 	else if (lv_is_writecache_cachevol(lv)) {
 		if (!str_list_add_no_dup_check(mem, layout, _lv_type_names[LV_TYPE_WRITECACHE]) ||
+		    !str_list_add_no_dup_check(mem, layout, _lv_type_names[LV_TYPE_CACHEVOL]))
+			goto_bad;
+		*public_lv = 0;
+	} else if (lv_is_writeboost_cachevol(lv)) {
+		if (!str_list_add_no_dup_check(mem, layout, _lv_type_names[LV_TYPE_WRITECACHEBOOST]) ||
 		    !str_list_add_no_dup_check(mem, layout, _lv_type_names[LV_TYPE_CACHEVOL]))
 			goto_bad;
 		*public_lv = 0;
@@ -625,7 +645,8 @@ int lv_layout_and_role(struct dm_pool *mem, const struct logical_volume *lv,
 		goto_bad;
 
 	/* Caches and related */
-	if ((lv_is_cache_type(lv) || lv_is_cache_origin(lv) || lv_is_writecache(lv) || lv_is_writecache_origin(lv)) &&
+	if ((lv_is_cache_type(lv) || lv_is_cache_origin(lv) || lv_is_writecache(lv) || lv_is_writecache_origin(lv) ||
+	     lv_is_writeboost(lv) || lv_is_writeboost_origin(lv)) &&
 	    !_lv_layout_and_role_cache(mem, lv, *layout, *role, &public_lv))
 		goto_bad;
 
@@ -1484,7 +1505,8 @@ static struct logical_volume *_get_resizable_layer_lv(struct logical_volume *lv)
 	       lv_is_integrity(lv) ||
 	       lv_is_thin_pool(lv) || /* _tdata */
 	       lv_is_vdo_pool(lv) || /* _vdata */
-	       lv_is_writecache(lv)) /* _worigin */
+	       lv_is_writecache(lv) || /* _worigin */
+	       lv_is_writeboost(lv)) /* _wborigin */
 		lv = seg_lv(first_seg(lv), 0);  /* component-level down */
 
 	return lv;
@@ -1499,7 +1521,8 @@ static int _is_layered_lv(struct logical_volume *lv)
 		lv_is_integrity_origin(lv) ||
 		lv_is_thin_pool_data(lv) ||
 		lv_is_vdo_pool_data(lv) ||
-		lv_is_writecache_origin(lv));
+		lv_is_writecache_origin(lv) ||
+		lv_is_writeboost_origin(lv));
 }
 
 /* Find the topmost LV in the stack - usually such LV is visible. */
@@ -4856,6 +4879,9 @@ static int _for_each_sub_lv(struct logical_volume *lv, int level,
 		if (!_for_each_sub_lv(seg->writecache, level, fn, data))
 			return_0;
 
+		if (!_for_each_sub_lv(seg->writeboost, level, fn, data))
+			return_0;
+
 		if (!_for_each_sub_lv(seg->integrity_meta_dev, level, fn, data))
 			return_0;
 
@@ -5963,6 +5989,10 @@ static int _lv_resize_check_type(struct logical_volume *lv,
 		if (lv_is_writecache(lv)) {
 			/* TODO: detect kernel with support for reduction */
 			log_error("Reduce not yet allowed on LVs with writecache attached.");
+			return 0;
+		}
+		if (lv_is_writeboost(lv)) {
+			log_error("Reduce not yet allowed on LVs with writeboost attached.");
 			return 0;
 		}
 		if (lv_is_raid(lv)) {
@@ -7091,7 +7121,7 @@ int lv_resize(struct cmd_context *cmd, struct logical_volume *lv,
 	    (lv_is_cow(lv) ||
 	     !(lv_is_linear(lv) || lv_is_striped(lv) || lv_is_raid(lv) ||
 	       lv_is_mirror(lv) || lv_is_thin_volume(lv) || lv_is_vdo(lv) ||
-	       lv_is_cache(lv) || lv_is_writecache(lv)))) {
+	       lv_is_cache(lv) || lv_is_writecache(lv) || lv_is_writeboost(lv)))) {
 		log_print_unless_silent("Ignoring fs resizing options for LV type %s.",
 					seg ? seg->segtype->name : "unknown");
 		lp->fsopt[0] = '\0';
@@ -8213,7 +8243,7 @@ int lv_remove_with_dependencies(struct cmd_context *cmd, struct logical_volume *
 		return 0;
 	}
 
-	if (lv_is_cache_origin(lv) || lv_is_writecache_origin(lv)) {
+	if (lv_is_cache_origin(lv) || lv_is_writecache_origin(lv) || lv_is_writeboost_origin(lv)) {
 		if (!_lv_remove_segs_using_this_lv(cmd, lv, force, level, "cache origin"))
 			return_0;
 		/* Removal of cache LV also removes caching origin */

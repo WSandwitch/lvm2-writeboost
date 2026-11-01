@@ -101,6 +101,7 @@
 							   written out in metadata*/
 
 #define WRITECACHE_ORIGIN	UINT64_C(0x0000000002000000)
+#define WRITECACHEBOOST_ORIGIN	UINT64_C(0x0000000000200000)
 #define INTEGRITY_METADATA	UINT64_C(0x0000000004000000)    /* LV - Internal use only */
 #define VIRTUAL_ORIGIN		UINT64_C(0x0000000008000000)	/* LV - internal use only */
 
@@ -108,6 +109,7 @@
 
 #define UNLABELLED_PV		UINT64_C(0x0000000080000000)	/* PV -this PV had no label written yet */
 #define WRITECACHE		UINT64_C(0x0000000080000000)	/* LV - shared with UNLABELLED_PV */
+#define WRITECACHEBOOST		UINT64_C(0x0000000800000000)	/* LV - writeboost cache */
 
 #define RAID			UINT64_C(0x0000000100000000)	/* LV - Internal use only */
 #define RAID_META		UINT64_C(0x0000000200000000)	/* LV - Internal use only */
@@ -279,6 +281,7 @@
 #define lv_is_pool_metadata_spare(lv)	(((lv)->status & POOL_METADATA_SPARE) ? 1 : 0)
 #define lv_is_lockd_sanlock_lv(lv)	(((lv)->status & LOCKD_SANLOCK_LV) ? 1 : 0)
 #define lv_is_writecache(lv)   (((lv)->status & WRITECACHE) ? 1 : 0)
+#define lv_is_writeboost(lv)   (((lv)->status & WRITECACHEBOOST) ? 1 : 0)
 #define lv_is_integrity(lv)            (((lv)->status & INTEGRITY) ? 1 : 0)
 #define lv_is_integrity_metadata(lv)   (((lv)->status & INTEGRITY_METADATA) ? 1 : 0)
 
@@ -292,6 +295,7 @@
 /* Recognize component LV (matching lib/misc/lvm-string.c _lvname_has_reserved_component_string()) */
 #define lv_is_component(lv) (lv_is_cache_origin(lv) || \
 			     lv_is_writecache_origin(lv) || \
+			     lv_is_writeboost_origin(lv) || \
 			     lv_is_integrity_origin(lv) || \
 			     ((lv)->status & (\
 					      CACHE_POOL_DATA |\
@@ -556,6 +560,10 @@ struct lv_segment {
 	struct logical_volume *writecache;	/* For writecache */
 	uint32_t writecache_block_size;		/* For writecache */
 	struct dm_writecache_settings writecache_settings; /* For writecache */
+
+	struct logical_volume *writeboost;	/* For writeboost */
+	uint32_t writeboost_writeback_threshold;	/* For writeboost */
+	uint32_t writeboost_sync_data_interval;	/* For writeboost */
 
 	uint64_t integrity_data_sectors;
 	struct logical_volume *integrity_meta_dev;
@@ -1182,6 +1190,10 @@ int writecache_settings_to_str_list(struct dm_writecache_settings *settings, str
 int lv_writecache_set_cleaner(struct logical_volume *lv);
 bool lv_writecache_is_clean(struct cmd_context *cmd, struct logical_volume *lv, uint64_t *dirty_blocks);
 bool writecache_cleaner_supported(struct cmd_context *cmd);
+
+int lv_is_writeboost_origin(const struct logical_volume *lv);
+int lv_is_writeboost_cachevol(const struct logical_volume *lv);
+int lv_detach_writeboost_cachevol(struct logical_volume *lv, int noflush);
 
 struct logical_volume *lv_integrity_from_origin(const struct logical_volume *lv);
 int lv_is_integrity_origin(const struct logical_volume *lv);
