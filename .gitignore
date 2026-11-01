@@ -177,3 +177,20 @@ test/lib/vgimportdevices
 
 test/unit/dmraid_t.c
 test/unit/unit-test
+
+# Debian build artifacts
+/debian/.debhelper/
+/debian/build/
+/debian/tmp/
+/debian/files
+/debian/*.substvars
+/debian/*.debhelper
+/debian/*.debhelper.log
+/debian/debhelper-build-stamp
+/debian/autoreconf.before
+/debian/lvm2/
+/debian/lvm2-*/
+/debian/dmeventd/
+/debian/dmsetup/
+/debian/libdevmapper*/
+/debian/liblvm2*/
