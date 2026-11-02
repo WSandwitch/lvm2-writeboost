@@ -1569,6 +1569,88 @@ static int _get_one_writecache_setting(struct cmd_context *cmd, struct dm_writec
 	return 0;
 }
 
+static int _get_one_writeboost_setting(struct writeboost_settings *settings,
+				       const char *key, const char *val,
+				       int allow_static)
+{
+	uint64_t v;
+	char extra;
+
+#define PARSE_WB_SETTING(name, flag, min, max, is_static) \
+	if (!strcasecmp(key, #name)) { \
+		if ((is_static) && !allow_static) { \
+			log_error("Writeboost setting %s can only be set at attach time.", #name); \
+			return 0; \
+		} \
+		if ((sscanf(val, "%llu%c", (unsigned long long *) &v, &extra) != 1) || \
+		    ((int64_t) v < (int64_t) (min)) || ((int64_t) v > (int64_t) (max))) { \
+			log_error("Invalid writeboost setting %s=%s.", #name, val); \
+			return 0; \
+		} \
+		settings->value.name = (uint32_t) v; \
+		settings->set_flags |= (flag); \
+		return 1; \
+	}
+
+	PARSE_WB_SETTING(writeback_threshold, WB_SET_WRITEBACK_THRESHOLD, 0, 100, 0)
+	PARSE_WB_SETTING(nr_max_batched_writeback, WB_SET_NR_MAX_BATCHED_WRITEBACK, 1, 32, 0)
+	PARSE_WB_SETTING(update_sb_record_interval, WB_SET_UPDATE_SB_RECORD_INTERVAL, 0, 3600, 0)
+	PARSE_WB_SETTING(sync_data_interval, WB_SET_SYNC_DATA_INTERVAL, 0, 3600, 0)
+	PARSE_WB_SETTING(read_cache_threshold, WB_SET_READ_CACHE_THRESHOLD, 0, 127, 0)
+	PARSE_WB_SETTING(write_around_mode, WB_SET_WRITE_AROUND_MODE, 0, 1, 1)
+	PARSE_WB_SETTING(nr_read_cache_cells, WB_SET_NR_READ_CACHE_CELLS, 1, 2048, 1)
+
+#undef PARSE_WB_SETTING
+
+	log_error("Unknown writeboost setting %s.", key);
+	return 0;
+}
+
+int get_writeboost_settings(struct cmd_context *cmd, struct writeboost_settings *settings,
+			    int allow_static)
+{
+	struct arg_value_group_list *group;
+	const char *str;
+	char key[64];
+	char val[64];
+	unsigned pos;
+	int num;
+
+	memset(settings, 0, sizeof(*settings));
+	settings->value.writeback_threshold = 70;
+	settings->value.nr_max_batched_writeback = 32;
+	settings->value.update_sb_record_interval = 0;
+	settings->value.sync_data_interval = 3600;
+	settings->value.read_cache_threshold = 0;
+	settings->value.write_around_mode = 0;
+	settings->value.nr_read_cache_cells = 2048;
+
+	dm_list_iterate_items(group, &cmd->arg_value_groups) {
+		if (!grouped_arg_is_set(group->arg_values, cachesettings_ARG))
+			continue;
+
+		if (!(str = grouped_arg_str_value(group->arg_values, cachesettings_ARG, NULL)))
+			break;
+
+		pos = 0;
+		while (pos < strlen(str)) {
+			memset(key, 0, sizeof(key));
+			memset(val, 0, sizeof(val));
+
+			if (sscanf(str + pos, " %63[^=]=%63s %n", key, val, &num) != 2) {
+				log_error("Invalid setting at: %s", str + pos);
+				return 0;
+			}
+			pos += num;
+
+			if (!_get_one_writeboost_setting(settings, key, val, allow_static))
+				return 0;
+		}
+	}
+
+	return 1;
+}
+
 int get_writecache_settings(struct cmd_context *cmd, struct dm_writecache_settings *settings,
 			    uint32_t *block_size_sectors)
 {

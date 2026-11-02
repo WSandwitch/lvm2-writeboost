@@ -1,3 +1,11 @@
+lvm2 (2:2.03.43-0ubuntu1~wb2) jammy; urgency=medium
+
+  * Expose all writeboost target settings through lvconvert, lvchange and
+    cache_settings.
+  * Add writeboost dirty cache statistics to lvs.
+
+ -- Denis Yarikov <whitesandwitch@yandex.com>  Mon, 02 Nov 2026 00:00:00 +0000
+
 lvm2 (2:2.03.43-0ubuntu1~wb1) jammy; urgency=medium
 
   * Rebase on LVM2 2.03.43 with the writeboost segment type.

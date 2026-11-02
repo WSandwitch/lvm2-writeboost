@@ -229,6 +229,22 @@ int get_vdo_settings(struct cmd_context *cmd,
 int get_writecache_settings(struct cmd_context *cmd, struct dm_writecache_settings *settings,
 			    uint32_t *block_size_sectors);
 
+#define WB_SET_WRITEBACK_THRESHOLD	0x0001
+#define WB_SET_NR_MAX_BATCHED_WRITEBACK	0x0002
+#define WB_SET_UPDATE_SB_RECORD_INTERVAL	0x0004
+#define WB_SET_SYNC_DATA_INTERVAL	0x0008
+#define WB_SET_READ_CACHE_THRESHOLD	0x0010
+#define WB_SET_WRITE_AROUND_MODE	0x0020
+#define WB_SET_NR_READ_CACHE_CELLS	0x0040
+
+struct writeboost_settings {
+	struct dm_writeboost_settings value;
+	uint32_t set_flags;
+};
+
+int get_writeboost_settings(struct cmd_context *cmd, struct writeboost_settings *settings,
+			    int allow_static);
+
 int get_integrity_settings(struct cmd_context *cmd, struct dm_integrity_settings *settings);
 
 int change_tag(struct cmd_context *cmd, struct volume_group *vg,

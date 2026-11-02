@@ -2852,10 +2852,22 @@ static int _writeboost_emit_segment_line(struct dm_task *dmt,
 	if (!_build_dev_string(cache_dev, sizeof(cache_dev), seg->writeboost_node))
 		return_0;
 
-	EMIT_PARAMS(pos, "%s %s 4 writeback_threshold %u sync_data_interval %u",
+	EMIT_PARAMS(pos, "%s %s 14"
+		    " writeback_threshold %u"
+		    " nr_max_batched_writeback %u"
+		    " update_sb_record_interval %u"
+		    " sync_data_interval %u"
+		    " read_cache_threshold %u"
+		    " write_around_mode %u"
+		    " nr_read_cache_cells %u",
 		    origin_dev, cache_dev,
 		    seg->writeboost_settings.writeback_threshold,
-		    seg->writeboost_settings.sync_data_interval);
+		    seg->writeboost_settings.nr_max_batched_writeback,
+		    seg->writeboost_settings.update_sb_record_interval,
+		    seg->writeboost_settings.sync_data_interval,
+		    seg->writeboost_settings.read_cache_threshold,
+		    seg->writeboost_settings.write_around_mode,
+		    seg->writeboost_settings.nr_read_cache_cells);
 
 	return 1;
 }

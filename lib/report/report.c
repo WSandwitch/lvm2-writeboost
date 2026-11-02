@@ -1471,6 +1471,16 @@ static int _cache_settings_disp(struct dm_report *rh, struct dm_pool *mem,
 		return _field_set_string_list(rh, field, result, private, 0, NULL);
 	}
 
+	if (seg_is_writeboost(seg)) {
+		if (!(result = str_list_create(mem)))
+			return_0;
+
+		if (!writeboost_settings_to_str_list(&seg->writeboost_settings, result, mem))
+			return_0;
+
+		return _field_set_string_list(rh, field, result, private, 0, NULL);
+	}
+
 	if (seg_is_cache(seg) && lv_is_cache_vol(seg->pool_lv))
 		setting_seg = seg;
 
@@ -4205,6 +4215,42 @@ GENERATE_WRITECACHE_STATUS_DISP_FN(total_blocks)
 GENERATE_WRITECACHE_STATUS_DISP_FN(free_blocks)
 GENERATE_WRITECACHE_STATUS_DISP_FN(writeback_blocks)
 GENERATE_WRITECACHE_STATUS_DISP_FN(error)
+
+#define GENERATE_WRITECACHEBOOST_STATUS_DISP_FN(status_field_name) \
+static int _writeboost_ ## status_field_name ## _disp(struct dm_report *rh, \
+						      struct dm_pool *mem, \
+						      struct dm_report_field *field, \
+						      const void *data, \
+						      void *private) \
+{ \
+	const struct lv_with_info_and_seg_status *lvdm = (const struct lv_with_info_and_seg_status *) data; \
+	if (lvdm->seg_status.type != SEG_STATUS_WRITECACHEBOOST) \
+		return _field_set_value(field, "", &GET_TYPE_RESERVED_VALUE(num_undef_64)); \
+	return dm_report_field_uint64(rh, field, &lvdm->seg_status.writeboost->status_field_name); \
+}
+
+GENERATE_WRITECACHEBOOST_STATUS_DISP_FN(total_blocks)
+GENERATE_WRITECACHEBOOST_STATUS_DISP_FN(dirty_blocks)
+GENERATE_WRITECACHEBOOST_STATUS_DISP_FN(segments)
+GENERATE_WRITECACHEBOOST_STATUS_DISP_FN(current_id)
+GENERATE_WRITECACHEBOOST_STATUS_DISP_FN(last_flushed_id)
+GENERATE_WRITECACHEBOOST_STATUS_DISP_FN(last_writeback_id)
+
+static int _writeboost_dirty_percent_disp(struct dm_report *rh,
+					  struct dm_pool *mem __attribute__((unused)),
+					  struct dm_report_field *field,
+					  const void *data, void *private __attribute__((unused)))
+{
+	const struct lv_with_info_and_seg_status *lvdm = (const struct lv_with_info_and_seg_status *) data;
+	dm_percent_t percent = DM_PERCENT_INVALID;
+
+	if ((lvdm->seg_status.type == SEG_STATUS_WRITECACHEBOOST) &&
+	    lvdm->seg_status.writeboost->total_blocks)
+		percent = dm_make_percent(lvdm->seg_status.writeboost->dirty_blocks,
+					  lvdm->seg_status.writeboost->total_blocks);
+
+	return dm_report_field_percent(rh, field, &percent);
+}
 
 /*
  * Macro to generate '_vdo_<vdo_field_name>_disp' reporting function.

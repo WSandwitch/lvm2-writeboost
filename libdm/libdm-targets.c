@@ -406,6 +406,45 @@ int dm_get_status_writecache(struct dm_pool *mem, const char *params,
 	return 1;
 }
 
+int dm_get_status_writeboost(struct dm_pool *mem, const char *params,
+			     struct dm_status_writeboost **status)
+{
+	struct dm_status_writeboost *s;
+
+	if (!(s = dm_pool_zalloc(mem, sizeof(*s))))
+		return_0;
+
+	if (sscanf(params,
+		   " " FMTu64
+		   " " FMTu64
+		   " " FMTu64
+		   " " FMTu64
+		   " " FMTu64
+		   " " FMTu64
+		   " " FMTu64
+		   " " FMTu64 " " FMTu64 " " FMTu64 " " FMTu64
+		   " " FMTu64 " " FMTu64 " " FMTu64 " " FMTu64
+		   " " FMTu64 " " FMTu64 " " FMTu64 " " FMTu64
+		   " " FMTu64 " " FMTu64 " " FMTu64 " " FMTu64
+		   " " FMTu64,
+		   &s->cursor, &s->total_blocks, &s->segments,
+		   &s->current_id, &s->last_flushed_id, &s->last_writeback_id,
+		   &s->dirty_blocks,
+		   &s->stats[0], &s->stats[1], &s->stats[2], &s->stats[3],
+		   &s->stats[4], &s->stats[5], &s->stats[6], &s->stats[7],
+		   &s->stats[8], &s->stats[9], &s->stats[10], &s->stats[11],
+		   &s->stats[12], &s->stats[13], &s->stats[14], &s->stats[15],
+		   &s->count_non_full_flushed) != 24) {
+		log_error("Failed to parse writeboost params: %s.", params);
+		dm_pool_free(mem, s);
+		return 0;
+	}
+
+	*status = s;
+
+	return 1;
+}
+
 int dm_get_status_integrity(struct dm_pool *mem, const char *params,
 			     struct dm_status_integrity **status)
 {

@@ -68,16 +68,41 @@ static int _writeboost_text_import(struct lv_segment *seg,
 	seg->writeboost = cache_lv;
 	seg->lv->status |= WRITECACHEBOOST;
 
-	seg->writeboost_writeback_threshold = 70;
-	seg->writeboost_sync_data_interval = 3600;
+	seg->writeboost_settings.writeback_threshold = 70;
+	seg->writeboost_settings.nr_max_batched_writeback = 32;
+	seg->writeboost_settings.update_sb_record_interval = 0;
+	seg->writeboost_settings.sync_data_interval = 3600;
+	seg->writeboost_settings.read_cache_threshold = 0;
+	seg->writeboost_settings.write_around_mode = 0;
+	seg->writeboost_settings.nr_read_cache_cells = 2048;
 
 	if (dm_config_has_node(sn, "writeback_threshold") &&
-	    !dm_config_get_uint32(sn, "writeback_threshold", &seg->writeboost_writeback_threshold))
+	    !dm_config_get_uint32(sn, "writeback_threshold", &seg->writeboost_settings.writeback_threshold))
 		return SEG_LOG_ERROR("Unknown writeback_threshold in");
 
+	if (dm_config_has_node(sn, "nr_max_batched_writeback") &&
+	    !dm_config_get_uint32(sn, "nr_max_batched_writeback", &seg->writeboost_settings.nr_max_batched_writeback))
+		return SEG_LOG_ERROR("Unknown nr_max_batched_writeback in");
+
+	if (dm_config_has_node(sn, "update_sb_record_interval") &&
+	    !dm_config_get_uint32(sn, "update_sb_record_interval", &seg->writeboost_settings.update_sb_record_interval))
+		return SEG_LOG_ERROR("Unknown update_sb_record_interval in");
+
 	if (dm_config_has_node(sn, "sync_data_interval") &&
-	    !dm_config_get_uint32(sn, "sync_data_interval", &seg->writeboost_sync_data_interval))
+	    !dm_config_get_uint32(sn, "sync_data_interval", &seg->writeboost_settings.sync_data_interval))
 		return SEG_LOG_ERROR("Unknown sync_data_interval in");
+
+	if (dm_config_has_node(sn, "read_cache_threshold") &&
+	    !dm_config_get_uint32(sn, "read_cache_threshold", &seg->writeboost_settings.read_cache_threshold))
+		return SEG_LOG_ERROR("Unknown read_cache_threshold in");
+
+	if (dm_config_has_node(sn, "write_around_mode") &&
+	    !dm_config_get_uint32(sn, "write_around_mode", &seg->writeboost_settings.write_around_mode))
+		return SEG_LOG_ERROR("Unknown write_around_mode in");
+
+	if (dm_config_has_node(sn, "nr_read_cache_cells") &&
+	    !dm_config_get_uint32(sn, "nr_read_cache_cells", &seg->writeboost_settings.nr_read_cache_cells))
+		return SEG_LOG_ERROR("Unknown nr_read_cache_cells in");
 
 	if (!add_seg_to_segs_using_this_lv(cache_lv, seg))
 		return_0;
@@ -93,13 +118,50 @@ static int _writeboost_text_import_area_count(const struct dm_config_node *sn,
 	return 1;
 }
 
+int writeboost_settings_to_str_list(const struct dm_writeboost_settings *settings,
+				    struct dm_list *result, struct dm_pool *mem)
+{
+	int errors = 0;
+
+	if (!setting_str_list_add("writeback_threshold", settings->writeback_threshold, NULL, result, mem))
+		errors++;
+
+	if (!setting_str_list_add("nr_max_batched_writeback", settings->nr_max_batched_writeback, NULL, result, mem))
+		errors++;
+
+	if (!setting_str_list_add("update_sb_record_interval", settings->update_sb_record_interval, NULL, result, mem))
+		errors++;
+
+	if (!setting_str_list_add("sync_data_interval", settings->sync_data_interval, NULL, result, mem))
+		errors++;
+
+	if (!setting_str_list_add("read_cache_threshold", settings->read_cache_threshold, NULL, result, mem))
+		errors++;
+
+	if (!setting_str_list_add("write_around_mode", settings->write_around_mode, NULL, result, mem))
+		errors++;
+
+	if (!setting_str_list_add("nr_read_cache_cells", settings->nr_read_cache_cells, NULL, result, mem))
+		errors++;
+
+	if (errors)
+		log_warn("WARNING: Failed to create list of writeboost settings.");
+
+	return 1;
+}
+
 static int _writeboost_text_export(const struct lv_segment *seg,
 				   struct formatter *f)
 {
 	outf(f, "writeboost = \"%s\"", seg->writeboost->name);
 	outf(f, "origin = \"%s\"", seg_lv(seg, 0)->name);
-	outf(f, "writeback_threshold = %u", seg->writeboost_writeback_threshold);
-	outf(f, "sync_data_interval = %u", seg->writeboost_sync_data_interval);
+	outf(f, "writeback_threshold = %u", seg->writeboost_settings.writeback_threshold);
+	outf(f, "nr_max_batched_writeback = %u", seg->writeboost_settings.nr_max_batched_writeback);
+	outf(f, "update_sb_record_interval = %u", seg->writeboost_settings.update_sb_record_interval);
+	outf(f, "sync_data_interval = %u", seg->writeboost_settings.sync_data_interval);
+	outf(f, "read_cache_threshold = %u", seg->writeboost_settings.read_cache_threshold);
+	outf(f, "write_around_mode = %u", seg->writeboost_settings.write_around_mode);
+	outf(f, "nr_read_cache_cells = %u", seg->writeboost_settings.nr_read_cache_cells);
 
 	return 1;
 }
@@ -160,10 +222,7 @@ static int _writeboost_add_target_line(struct dev_manager *dm,
 {
 	char *origin_uuid;
 	char *cache_uuid;
-	struct dm_writeboost_settings settings = {
-		.writeback_threshold = seg->writeboost_writeback_threshold,
-		.sync_data_interval = seg->writeboost_sync_data_interval,
-	};
+	struct dm_writeboost_settings settings = seg->writeboost_settings;
 
 	if (!seg_is_writeboost(seg)) {
 		log_error(INTERNAL_ERROR "Passed segment is not writeboost.");

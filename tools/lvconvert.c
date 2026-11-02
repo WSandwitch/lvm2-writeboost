@@ -6680,65 +6680,10 @@ int lvconvert_integrity_cmd(struct cmd_context *cmd, int argc, char **argv)
 	return ret;
 }
 
-static int _get_writeboost_settings(struct cmd_context *cmd,
-				    uint32_t *writeback_threshold,
-				    uint32_t *sync_data_interval)
-{
-	struct arg_value_group_list *group;
-	const char *str;
-	char key[64];
-	char val[64];
-	unsigned pos;
-	int num;
-
-	*writeback_threshold = 70;
-	*sync_data_interval = 3600;
-
-	dm_list_iterate_items(group, &cmd->arg_value_groups) {
-		if (!grouped_arg_is_set(group->arg_values, cachesettings_ARG))
-			continue;
-
-		if (!(str = grouped_arg_str_value(group->arg_values, cachesettings_ARG, NULL)))
-			break;
-
-		pos = 0;
-		while (pos < strlen(str)) {
-			memset(key, 0, sizeof(key));
-			memset(val, 0, sizeof(val));
-
-			if (sscanf(str + pos, " %63[^=]=%63s %n", key, val, &num) != 2) {
-				log_error("Invalid setting at: %s", str + pos);
-				return 0;
-			}
-			pos += num;
-
-			if (!strcasecmp(key, "writeback_threshold")) {
-				if (sscanf(val, "%u", writeback_threshold) != 1 ||
-				    *writeback_threshold > 100) {
-					log_error("Invalid writeback_threshold.");
-					return 0;
-				}
-			} else if (!strcasecmp(key, "sync_data_interval")) {
-				if (sscanf(val, "%u", sync_data_interval) != 1 ||
-				    *sync_data_interval > 3600) {
-					log_error("Invalid sync_data_interval.");
-					return 0;
-				}
-			} else {
-				log_error("Unknown writeboost setting %s.", key);
-				return 0;
-			}
-		}
-	}
-
-	return 1;
-}
-
 static int _lv_writeboost_create(struct cmd_context *cmd,
 				 struct logical_volume *lv,
 				 struct logical_volume *lv_fast,
-				 uint32_t writeback_threshold,
-				 uint32_t sync_data_interval)
+				 const struct dm_writeboost_settings *settings)
 {
 	const struct segment_type *segtype;
 	struct lv_segment *seg;
@@ -6757,8 +6702,7 @@ static int _lv_writeboost_create(struct cmd_context *cmd,
 	lv_set_hidden(lv_fast);
 	lv_fast->status |= LV_CACHE_VOL;
 
-	seg->writeboost_writeback_threshold = writeback_threshold;
-	seg->writeboost_sync_data_interval = sync_data_interval;
+	seg->writeboost_settings = *settings;
 
 	if (!add_seg_to_segs_using_this_lv(lv_fast, seg))
 		return_0;
@@ -6774,8 +6718,7 @@ int lvconvert_writeboost_attach_single(struct cmd_context *cmd,
 	struct logical_volume *lv_fast = NULL;
 	const char *fast_name = arg_str_value(cmd, cachevol_ARG, NULL);
 	char cvol_name[NAME_LEN];
-	uint32_t writeback_threshold;
-	uint32_t sync_data_interval;
+	struct writeboost_settings settings;
 
 	if (lv_is_writeboost(lv)) {
 		log_error("LV %s already has writeboost.", display_lvname(lv));
@@ -6820,7 +6763,7 @@ int lvconvert_writeboost_attach_single(struct cmd_context *cmd,
 		return ECMD_FAILED;
 	}
 
-	if (!_get_writeboost_settings(cmd, &writeback_threshold, &sync_data_interval))
+	if (!get_writeboost_settings(cmd, &settings, 1))
 		return ECMD_FAILED;
 
 	if (!archive(vg))
@@ -6834,8 +6777,7 @@ int lvconvert_writeboost_attach_single(struct cmd_context *cmd,
 	if (!lv_rename_update(cmd, lv_fast, cvol_name, 0))
 		return ECMD_FAILED;
 
-	if (!_lv_writeboost_create(cmd, lv, lv_fast,
-				   writeback_threshold, sync_data_interval))
+	if (!_lv_writeboost_create(cmd, lv, lv_fast, &settings.value))
 		return ECMD_FAILED;
 
 	if (!lv_update_and_reload(lv))

@@ -368,6 +368,21 @@ GET_PV_STR_PROPERTY_FN(pv_device_id_type, pv->device_id_type)
 #define _writecache_block_size_set prop_not_implemented_set
 #define _writecache_block_size_get prop_not_implemented_get
 
+#define _wb_dirty_percent_set prop_not_implemented_set
+#define _wb_dirty_percent_get prop_not_implemented_get
+#define _wb_total_blocks_set prop_not_implemented_set
+#define _wb_total_blocks_get prop_not_implemented_get
+#define _wb_dirty_blocks_set prop_not_implemented_set
+#define _wb_dirty_blocks_get prop_not_implemented_get
+#define _wb_segments_set prop_not_implemented_set
+#define _wb_segments_get prop_not_implemented_get
+#define _wb_current_id_set prop_not_implemented_set
+#define _wb_current_id_get prop_not_implemented_get
+#define _wb_last_flushed_id_set prop_not_implemented_set
+#define _wb_last_flushed_id_get prop_not_implemented_get
+#define _wb_last_writeback_id_set prop_not_implemented_set
+#define _wb_last_writeback_id_get prop_not_implemented_get
+
 #define _vdo_operating_mode_set prop_not_implemented_set
 #define _vdo_operating_mode_get prop_not_implemented_get
 #define _vdo_compression_state_set prop_not_implemented_set

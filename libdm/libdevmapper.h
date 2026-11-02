@@ -394,6 +394,21 @@ struct dm_status_writecache {
 int dm_get_status_writecache(struct dm_pool *mem, const char *params,
 			     struct dm_status_writecache **status);
 
+struct dm_status_writeboost {
+	uint64_t cursor;
+	uint64_t total_blocks;
+	uint64_t segments;
+	uint64_t current_id;
+	uint64_t last_flushed_id;
+	uint64_t last_writeback_id;
+	uint64_t dirty_blocks;
+	uint64_t stats[16];
+	uint64_t count_non_full_flushed;
+};
+
+int dm_get_status_writeboost(struct dm_pool *mem, const char *params,
+			     struct dm_status_writeboost **status);
+
 struct dm_status_integrity {
 	uint64_t number_of_mismatches;
 	uint64_t provided_data_sectors;
@@ -2017,7 +2032,12 @@ int dm_tree_node_add_writecache_target(struct dm_tree_node *node,
 
 struct dm_writeboost_settings {
 	uint32_t writeback_threshold;
+	uint32_t nr_max_batched_writeback;
+	uint32_t update_sb_record_interval;
 	uint32_t sync_data_interval;
+	uint32_t read_cache_threshold;
+	uint32_t write_around_mode;
+	uint32_t nr_read_cache_cells;
 };
 
 int dm_tree_node_add_writeboost_target(struct dm_tree_node *node,

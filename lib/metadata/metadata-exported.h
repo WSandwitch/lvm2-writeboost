@@ -562,8 +562,7 @@ struct lv_segment {
 	struct dm_writecache_settings writecache_settings; /* For writecache */
 
 	struct logical_volume *writeboost;	/* For writeboost */
-	uint32_t writeboost_writeback_threshold;	/* For writeboost */
-	uint32_t writeboost_sync_data_interval;	/* For writeboost */
+	struct dm_writeboost_settings writeboost_settings;	/* For writeboost */
 
 	uint64_t integrity_data_sectors;
 	struct logical_volume *integrity_meta_dev;
@@ -1194,6 +1193,8 @@ bool writecache_cleaner_supported(struct cmd_context *cmd);
 int lv_is_writeboost_origin(const struct logical_volume *lv);
 int lv_is_writeboost_cachevol(const struct logical_volume *lv);
 int lv_detach_writeboost_cachevol(struct logical_volume *lv, int noflush);
+int writeboost_settings_to_str_list(const struct dm_writeboost_settings *settings,
+				    struct dm_list *result, struct dm_pool *mem);
 
 struct logical_volume *lv_integrity_from_origin(const struct logical_volume *lv);
 int lv_is_integrity_origin(const struct logical_volume *lv);

@@ -39,6 +39,7 @@ typedef enum {
 	SEG_STATUS_THIN_POOL,
 	SEG_STATUS_VDO_POOL,
 	SEG_STATUS_WRITECACHE,
+	SEG_STATUS_WRITECACHEBOOST,
 	SEG_STATUS_INTEGRITY,
 	SEG_STATUS_UNKNOWN
 } lv_seg_status_type_t;
@@ -54,6 +55,7 @@ struct lv_seg_status {
 		struct dm_status_thin *thin;
 		struct dm_status_thin_pool *thin_pool;
 		struct dm_status_writecache *writecache;
+		struct dm_status_writeboost *writeboost;
 		struct dm_status_integrity *integrity;
 		struct lv_status_vdo vdo_pool;
 	};

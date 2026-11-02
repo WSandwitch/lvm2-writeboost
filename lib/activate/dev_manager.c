@@ -376,6 +376,10 @@ static int _get_segment_status_from_target_params(const char *target_name,
 		if (!dm_get_status_writecache(seg_status->mem, params, &(seg_status->writecache)))
 			return_0;
 		seg_status->type = SEG_STATUS_WRITECACHE;
+	} else if (segtype_is_writeboost(segtype)) {
+		if (!dm_get_status_writeboost(seg_status->mem, params, &(seg_status->writeboost)))
+			return_0;
+		seg_status->type = SEG_STATUS_WRITECACHEBOOST;
 	} else if (segtype_is_integrity(segtype)) {
 		if (!dm_get_status_integrity(seg_status->mem, params, &(seg_status->integrity)))
 			return_0;

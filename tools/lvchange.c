@@ -691,6 +691,43 @@ static int _lvchange_writecache(struct cmd_context *cmd,
 	return 1;
 }
 
+static int _lvchange_writeboost(struct cmd_context *cmd,
+				struct logical_volume *lv,
+				uint32_t *mr)
+{
+	struct lv_segment *seg = first_seg(lv);
+	struct writeboost_settings settings;
+	int set_count = 0;
+
+	if (!get_writeboost_settings(cmd, &settings, 0))
+		return 0;
+
+#define APPLY_WB_SETTING(flag, field) \
+	do { \
+		if (settings.set_flags & (flag)) { \
+			seg->writeboost_settings.field = settings.value.field; \
+			set_count++; \
+		} \
+	} while (0)
+
+	APPLY_WB_SETTING(WB_SET_WRITEBACK_THRESHOLD, writeback_threshold);
+	APPLY_WB_SETTING(WB_SET_NR_MAX_BATCHED_WRITEBACK, nr_max_batched_writeback);
+	APPLY_WB_SETTING(WB_SET_UPDATE_SB_RECORD_INTERVAL, update_sb_record_interval);
+	APPLY_WB_SETTING(WB_SET_SYNC_DATA_INTERVAL, sync_data_interval);
+	APPLY_WB_SETTING(WB_SET_READ_CACHE_THRESHOLD, read_cache_threshold);
+
+#undef APPLY_WB_SETTING
+
+	if (!set_count) {
+		log_error("No writeboost settings were specified.");
+		return 0;
+	}
+
+	*mr |= MR_RELOAD;
+
+	return 1;
+}
+
 static int _lvchange_cache(struct cmd_context *cmd,
 			   struct logical_volume *lv,
 			   uint32_t *mr)
@@ -702,7 +739,10 @@ static int _lvchange_cache(struct cmd_context *cmd,
 	struct lv_segment *seg;
 	struct lv_segment *setting_seg = NULL;
 	int r = 0, is_clean;
-	uint32_t chunk_size = 0; /* FYI: lvchange does NOT support its change */
+	uint32_t chunk_size = 0; /* FYI, lvchange does NOT support its change */
+
+	if (lv_is_writeboost(lv))
+		return _lvchange_writeboost(cmd, lv, mr);
 
 	if (lv_is_writecache(lv))
 		return _lvchange_writecache(cmd, lv, mr);

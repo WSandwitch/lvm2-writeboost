@@ -163,6 +163,13 @@ FIELD(LVSSTATUS, lv, NUM, "WCacheTotalBlocks", lvid, 0, writecache_total_blocks,
 FIELD(LVSSTATUS, lv, NUM, "WCacheFreeBlocks", lvid, 0, writecache_free_blocks, writecache_free_blocks, "Total writecache free blocks.", 0)
 FIELD(LVSSTATUS, lv, NUM, "WCacheWritebackBlocks", lvid, 0, writecache_writeback_blocks, writecache_writeback_blocks, "Total writecache writeback blocks.", 0)
 FIELD(LVSSTATUS, lv, NUM, "WCacheErrors", lvid, 0, writecache_error, writecache_error, "Total writecache errors.", 0)
+FIELD(LVSSTATUS, lv, PCT, "WBDirty%", lvid, 0, writeboost_dirty_percent, wb_dirty_percent, "Dirty writeboost cache percentage.", 0)
+FIELD(LVSSTATUS, lv, NUM, "WBTotalBlocks", lvid, 0, writeboost_total_blocks, wb_total_blocks, "Total writeboost cache blocks.", 0)
+FIELD(LVSSTATUS, lv, NUM, "WBDirtyBlocks", lvid, 0, writeboost_dirty_blocks, wb_dirty_blocks, "Dirty writeboost cache blocks.", 0)
+FIELD(LVSSTATUS, lv, NUM, "WBSegments", lvid, 0, writeboost_segments, wb_segments, "Total writeboost cache segments.", 0)
+FIELD(LVSSTATUS, lv, NUM, "WBCurrentID", lvid, 0, writeboost_current_id, wb_current_id, "Current writeboost segment ID.", 0)
+FIELD(LVSSTATUS, lv, NUM, "WBLastFlushedID", lvid, 0, writeboost_last_flushed_id, wb_last_flushed_id, "Last flushed writeboost segment ID.", 0)
+FIELD(LVSSTATUS, lv, NUM, "WBLastWritebackID", lvid, 0, writeboost_last_writeback_id, wb_last_writeback_id, "Last written back writeboost segment ID.", 0)
 /*
  * End of LVSSTATUS type fields
  */
