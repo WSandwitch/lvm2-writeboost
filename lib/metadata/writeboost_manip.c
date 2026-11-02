@@ -151,6 +151,7 @@ static int _lv_detach_writeboost_cachevol_active(struct logical_volume *lv, int 
 	struct logical_volume *lv_fast;
 	struct logical_volume *lv_wborig;
 	struct lv_segment *seg = first_seg(lv);
+	int frozen = 0;
 
 	if (!seg_is_writeboost(seg)) {
 		log_error("LV %s segment is not writeboost.", display_lvname(lv));
@@ -168,25 +169,16 @@ static int _lv_detach_writeboost_cachevol_active(struct logical_volume *lv, int 
 	}
 
 	if (!noflush) {
-		if (!suspend_lv(cmd, lv)) {
-			log_error("Failed to suspend LV %s for writeboost flush.", display_lvname(lv));
+		if (!lv_writeboost_message(lv, "freeze")) {
+			log_error("Failed to freeze writeboost for %s.", display_lvname(lv));
 			return 0;
 		}
-
-		if (!resume_lv(cmd, lv)) {
-			log_error("Failed to resume LV %s for writeboost flush.", display_lvname(lv));
-			return 0;
-		}
-
-		if (!lv_writeboost_message(lv, "drop_caches")) {
-			log_error("Failed to flush writeboost for %s.", display_lvname(lv));
-			return 0;
-		}
+		frozen = 1;
 	}
 
 	if (!remove_seg_from_segs_using_this_lv(lv_fast, seg)) {
 		log_error("Failed to remove seg in writeboost detach.");
-		return 0;
+		goto bad_revert_unfreeze;
 	}
 
 	lv->status &= ~WRITECACHEBOOST;
@@ -194,28 +186,40 @@ static int _lv_detach_writeboost_cachevol_active(struct logical_volume *lv, int 
 
 	if (!remove_layer_from_lv(lv, lv_wborig)) {
 		log_error("Failed to remove lv layer in writeboost detach.");
-		return 0;
+		goto bad_revert_unfreeze;
 	}
 
 	if (!vg_write(vg)) {
 		log_error("Failed to write VG in writeboost detach.");
-		return 0;
+		goto bad_revert_unfreeze;
 	}
 
 	if (!suspend_lv(cmd, lv)) {
 		log_error("Failed to suspend LV in writeboost detach.");
-		vg_revert(vg);
-		return 0;
+		goto bad_revert_unfreeze;
 	}
 
 	if (!vg_commit(vg)) {
 		log_error("Failed to commit VG in writeboost detach.");
-		return 0;
+		if (!resume_lv(cmd, lv)) {
+			log_error("Failed to resume LV after writeboost commit failure.");
+			return 0;
+		}
+		goto bad_revert_unfreeze;
 	}
 
 	if (!resume_lv(cmd, lv)) {
 		log_error("Failed to resume LV in writeboost detach.");
 		return 0;
+	}
+
+	if (frozen) {
+		/*
+		 * The old writeboost target is gone after resume.  Mark the
+		 * freeze as consumed so the common error path cannot send a
+		 * message to a linear target.
+		 */
+		frozen = 0;
 	}
 
 	sync_local_dev_names(cmd);
@@ -243,6 +247,14 @@ static int _lv_detach_writeboost_cachevol_active(struct logical_volume *lv, int 
 	}
 
 	return 1;
+
+bad_revert_unfreeze:
+	vg_revert(vg);
+bad_unfreeze:
+	if (frozen && !lv_writeboost_message(lv, "unfreeze"))
+		log_error("Failed to unfreeze writeboost for %s after detach error.",
+			  display_lvname(lv));
+	return 0;
 }
 
 int lv_detach_writeboost_cachevol(struct logical_volume *lv, int noflush)

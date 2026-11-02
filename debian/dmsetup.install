@@ -1,5 +1,8 @@
 ../../initramfs-tools/dmsetup/* usr/share/initramfs-tools
-lib/udev/rules.d/*-dm*.rules
+lib/udev/rules.d/10-dm.rules
+lib/udev/rules.d/11-dm-lvm.rules
+lib/udev/rules.d/13-dm-disk.rules
+lib/udev/rules.d/95-dm-notify.rules
 sbin/blkdeactivate
 sbin/dmsetup
 sbin/dmstats

@@ -126,7 +126,6 @@ override_dh_gencontrol:
 	dh_gencontrol \
 		-pdmsetup \
 		-pdmsetup-udeb \
-		-pdmeventd \
 		-plibdevmapper-dev \
 		-plibdevmapper$(DEVMAPPER_ABINAME) \
 		-plibdevmapper$(DEVMAPPER_ABINAME)-udeb \

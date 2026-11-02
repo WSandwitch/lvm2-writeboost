@@ -46,8 +46,7 @@ Depends:
  lsb-base,
  dmsetup (>= ${devmapper:Version}~),
  dmeventd (>= ${devmapper:Version}~),
- writeboost,
- dm-writeboost-dkms (>= 2.2.13),
+ dm-writeboost-dkms (>= 2.2.13-1ubuntu4+wb1),
 Recommends:
  thin-provisioning-tools
 Multi-Arch: foreign
