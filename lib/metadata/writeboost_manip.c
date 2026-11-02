@@ -167,9 +167,21 @@ static int _lv_detach_writeboost_cachevol_active(struct logical_volume *lv, int 
 		return 0;
 	}
 
-	if (!noflush && !lv_writeboost_message(lv, "drop_caches")) {
-		log_error("Failed to flush writeboost for %s.", display_lvname(lv));
-		return 0;
+	if (!noflush) {
+		if (!suspend_lv(cmd, lv)) {
+			log_error("Failed to suspend LV %s for writeboost flush.", display_lvname(lv));
+			return 0;
+		}
+
+		if (!resume_lv(cmd, lv)) {
+			log_error("Failed to resume LV %s for writeboost flush.", display_lvname(lv));
+			return 0;
+		}
+
+		if (!lv_writeboost_message(lv, "drop_caches")) {
+			log_error("Failed to flush writeboost for %s.", display_lvname(lv));
+			return 0;
+		}
 	}
 
 	if (!remove_seg_from_segs_using_this_lv(lv_fast, seg)) {
