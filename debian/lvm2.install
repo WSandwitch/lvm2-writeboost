@@ -3,6 +3,7 @@ etc/lvm
 lib/systemd/system/blk-availability*
 lib/systemd/system/lvm2-lvmpolld*
 lib/systemd/system/lvm2-monitor*
+lib/systemd/system/lvm2-pvscan*
 lib/udev/rules.d/69-dm-lvm*.rules
 sbin/fsadm
 sbin/lvchange

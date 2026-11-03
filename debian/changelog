@@ -1,3 +1,10 @@
+lvm2 (2:2.03.43-0ubuntu1~wb3) jammy; urgency=medium
+
+  * Restore LVM event activation with lvm2-pvscan@.service.
+  * Install the pvscan service and start it from udev via SYSTEMD_WANTS.
+
+ -- Denis Yarikov <whitesandwitch@yandex.com>  Tue, 03 Nov 2026 00:00:00 +0000
+
 lvm2 (2:2.03.43-0ubuntu1~wb2) jammy; urgency=medium
 
   * Expose all writeboost target settings through lvconvert, lvchange and

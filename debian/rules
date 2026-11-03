@@ -169,7 +169,8 @@ override_dh_makeshlibs:
 override_dh_installsystemd:
 	dh_installsystemd -plvm2 --no-restart-after-upgrade --no-stop-on-upgrade \
 		blk-availability.service \
-		lvm2-monitor.service
+		lvm2-monitor.service \
+		lvm2-pvscan@.service
 	dh_installsystemd -plvm2 \
 		lvm2-lvmpolld.socket
 	dh_installsystemd --remaining-packages
